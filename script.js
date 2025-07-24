@@ -1,11 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // ===============================================================
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 설정 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // 사용 전, 본인의 GitHub 사용자명과 매뉴얼을 저장할 저장소 이름을 입력하세요.
+    const GITHUB_USERNAME = "haemsu"; // 👈 여기에 GitHub 사용자명을 입력하세요.
+    const GITHUB_REPONAME = "my-manual-app"; // 👈 여기에 저장소 이름을 입력하세요.
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 설정 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // ===============================================================
+
     // DOM 요소 가져오기
     const authContainer = document.getElementById('auth-container');
     const mainContainer = document.getElementById('main-container');
     const loader = document.getElementById('loader');
 
-    const repoOwnerInput = document.getElementById('repo-owner');
-    const repoNameInput = document.getElementById('repo-name');
     const tokenInput = document.getElementById('github-token');
     const loginBtn = document.getElementById('login-btn');
 
@@ -19,9 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 상태 변수
     let octokit;
-    let repoOwner, repoName;
+    const repoOwner = GITHUB_USERNAME; // 설정값 사용
+    const repoName = GITHUB_REPONAME;   // 설정값 사용
     let manualData = [];
-    let fileSha; // GitHub 파일 업데이트에 필요
+    let fileSha;
     let selectedItemId = null;
     let editorInstance = null;
     let isEditMode = false;
@@ -54,12 +61,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 path: MANUAL_FILE_PATH,
             });
             fileSha = data.sha;
-            // Base64 디코딩 후 JSON 파싱
             manualData = JSON.parse(atob(data.content));
             return true;
         } catch (error) {
             if (error.status === 404) {
-                 // 파일이 없는 경우, 빈 배열로 시작
                 manualData = [];
                 fileSha = null;
                 console.warn(`${MANUAL_FILE_PATH} not found. Starting with an empty manual.`);
@@ -76,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveManualFile() {
         showLoader(true);
         try {
-            const content = btoa(JSON.stringify(manualData, null, 2)); // Base64 인코딩
+            const content = btoa(JSON.stringify(manualData, null, 2));
             
             const params = {
                 owner: repoOwner,
@@ -86,14 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 content: content,
             };
 
-            // 파일이 존재하면(sha가 있으면) sha를 포함하여 업데이트
             if (fileSha) {
                 params.sha = fileSha;
             }
 
             const { data } = await octokit.rest.repos.createOrUpdateFileContents(params);
             
-            // 업데이트 후 새로운 sha 저장
             fileSha = data.content.sha;
             console.log('Manual saved successfully!');
             return true;
@@ -106,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- UI 렌더링 함수 ---
+    // --- UI 렌더링 함수 (이하 로직은 이전과 동일) ---
     
     function renderItemList() {
         itemList.innerHTML = '';
@@ -153,7 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = selectedItem ? selectedItem.content : '목차에서 항목을 선택해주세요.';
         
         if (isEditMode) {
-            // 에디터 모드
             editorContainer.classList.remove('hidden');
             viewer.classList.add('hidden');
             if (editorInstance) {
@@ -170,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
             editSaveBtn.textContent = '저장';
             statusText.textContent = '편집 모드입니다.';
         } else {
-            // 뷰어 모드
             editorContainer.classList.add('hidden');
             viewer.classList.remove('hidden');
             Viewer.setMarkdown(content);
@@ -184,21 +185,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     async function handleLogin() {
         const token = tokenInput.value.trim();
-        repoOwner = repoOwnerInput.value.trim();
-        repoName = repoNameInput.value.trim();
 
-        if (!token || !repoOwner || !repoName) {
-            alert('모든 필드를 입력해주세요.');
+        if (!token) {
+            alert('GitHub 개인 액세스 토큰을 입력해주세요.');
             return;
         }
 
-        // Octokit 인스턴스 생성
+        if (GITHUB_USERNAME === "your-github-username" || GITHUB_REPONAME === "your-repository-name") {
+            alert("script.js 파일 상단의 GITHUB_USERNAME과 GITHUB_REPONAME을 먼저 설정해주세요!");
+            return;
+        }
+
         octokit = new octokit.Octokit({ auth: token });
         
-        // 세션 스토리지에 정보 저장 (페이지 새로고침 시 유지)
         sessionStorage.setItem('github_token', token);
-        sessionStorage.setItem('repo_owner', repoOwner);
-        sessionStorage.setItem('repo_name', repoName);
         
         if (await getManualFile()) {
             switchView(true);
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm('수정 중인 내용이 있습니다. 저장하지 않고 다른 항목으로 이동하시겠습니까?')) {
                 return;
             }
-            isEditMode = false; // 편집 모드 해제
+            isEditMode = false;
         }
         selectedItemId = id;
         renderItemList();
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (await saveManualFile()) {
                 if (selectedItemId === id) {
                     selectedItemId = null;
-                    isEditMode = false; // 편집 모드 강제 해제
+                    isEditMode = false;
                     renderContent();
                 }
                 renderItemList();
@@ -268,7 +268,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedItemId) return;
 
         if (isEditMode) {
-            // 저장 로직
             const content = editorInstance.getMarkdown();
             const item = manualData.find(i => i.id === selectedItemId);
             item.content = content;
@@ -277,7 +276,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderContent();
             }
         } else {
-            // 수정 모드 진입
             isEditMode = true;
             renderContent();
         }
@@ -289,15 +287,10 @@ document.addEventListener('DOMContentLoaded', () => {
         addItemBtn.onclick = handleAddItem;
         editSaveBtn.onclick = handleEditSave;
 
-        // 세션 스토리지에서 정보 확인
         const storedToken = sessionStorage.getItem('github_token');
-        const storedOwner = sessionStorage.getItem('repo_owner');
-        const storedRepo = sessionStorage.getItem('repo_name');
         
-        if (storedToken && storedOwner && storedRepo) {
+        if (storedToken) {
             tokenInput.value = storedToken;
-            repoOwnerInput.value = storedOwner;
-            repoNameInput.value = storedRepo;
             handleLogin();
         }
     }
