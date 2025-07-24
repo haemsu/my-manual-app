@@ -1,52 +1,35 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub 기반 매뉴얼 편집기</title>
-    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
-    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor-viewer.min.css" />
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 매뉴얼</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="auth-section">
+    <h2>GitHub 토큰 입력</h2>
+    <input type="password" id="token-input" placeholder="GitHub Personal Access Token" />
+    <button id="submit-token">확인</button>
+  </div>
 
-    <div id="auth-container">
-        <h1>GitHub 매뉴얼 편집기</h1>
-        <p>GitHub 저장소에 접근하기 위해<br>개인 액세스 토큰(PAT)을 입력해주세요.</p>
-        <div class="input-group">
-            <input type="password" id="github-token" placeholder="GitHub 개인 액세스 토큰">
-        </div>
-        <button id="login-btn">저장소 불러오기</button>
-        <p class="warning">
-            ⚠️ 토큰은 브라우저 세션에만 저장되며, 창을 닫으면 사라집니다.<br>
-            이 앱은 학습용 프로토타입이며, 실제 서비스 환경에서는 사용하지 마세요.
-        </p>
+  <div id="main-section" style="display:none;">
+    <div class="sidebar">
+      <button id="add-item">항목 추가</button>
+      <ul id="item-list"></ul>
     </div>
-
-    <div id="main-container" class="hidden">
-        <div id="left-pane">
-            <div class="pane-header">
-                <h2>목차</h2>
-                <button id="add-item-btn">+</button>
-            </div>
-            <ul id="item-list"></ul>
-        </div>
-        <div id="right-pane">
-            <div id="content-area">
-                <div id="viewer" class="toastui-editor-contents"></div>
-                <div id="editor" class="hidden"></div>
-            </div>
-            <div id="editor-controls">
-                <p id="status-text">뷰어 모드입니다. 내용을 수정하려면 '수정' 버튼을 누르세요.</p>
-                <button id="edit-save-btn">수정</button>
-            </div>
-        </div>
+    <div class="editor">
+      <div id="viewer" style="display:block;"></div>
+      <textarea id="editor" style="display:none;"></textarea>
+      <div id="buttons">
+        <button id="edit-button">수정</button>
+        <button id="save-button" style="display:none;">저장</button>
+      </div>
     </div>
+  </div>
 
-    <div id="loader" class="hidden"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/octokit@3.1.2/dist/octokit-iife.min.js"></script>
-    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
-    <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
