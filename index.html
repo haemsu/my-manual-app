@@ -100,12 +100,24 @@
   const path = "data/manual.json";
   let quill;
 
+  // 페이지 로드 시 localStorage에서 토큰 불러오기
+  window.onload = () => {
+    const savedToken = localStorage.getItem("github_token");
+    if (savedToken) {
+      document.getElementById("token-input").value = savedToken;
+    }
+  };
+
   document.getElementById("submit-token").onclick = async () => {
     token = document.getElementById("token-input").value.trim();
     if (!token) {
       alert("토큰을 입력해주세요.");
       return;
     }
+
+    // 입력한 토큰을 localStorage에 저장
+    localStorage.setItem("github_token", token);
+
     document.getElementById("auth-section").style.display = "none";
     document.getElementById("main-section").style.display = "flex";
 
