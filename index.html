@@ -2,158 +2,195 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>매뉴얼 웹앱</title>
+<title>GitHub 연동 매뉴얼 웹앱</title>
 <style>
-  body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; }
-  #sidebar { width: 300px; border-right: 1px solid #ccc; overflow-y: auto; padding: 10px; box-sizing: border-box; }
-  #content { flex: 1; padding: 10px; box-sizing: border-box; }
+  body, html { margin:0; padding:0; height:100%; font-family: sans-serif; }
+  #loginOverlay {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.7);
+    display: flex; justify-content: center; align-items: center;
+    color: white; flex-direction: column;
+    z-index: 1000;
+  }
+  #loginOverlay input {
+    padding: 8px; width: 300px; font-size: 1rem; margin-top: 10px;
+  }
+  #app {
+    display: none; height: 100vh; 
+    display: flex;
+  }
+  #sidebar {
+    width: 280px; border-right: 1px solid #ccc;
+    padding: 10px; box-sizing: border-box;
+    overflow-y: auto;
+  }
+  #content {
+    flex: 1; padding: 10px; box-sizing: border-box;
+    display: flex; flex-direction: column;
+  }
   ul { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
-  .page-name { flex: 1; cursor: pointer; }
-  input.edit-name { flex: 1; padding: 2px; font-size: 1em; }
-  button { margin-left: 5px; }
-  #editor { width: 100%; height: 90vh; }
-  #viewer { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; height: 90vh; overflow-y: auto; background: #f9f9f9; }
+  li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 4px; cursor: pointer;
+    border-radius: 4px;
+  }
+  li.selected { background: #cce4ff; }
+  li:hover { background: #e0eefa; }
+  .page-name {
+    flex: 1; user-select: none;
+  }
+  input.edit-name {
+    flex: 1; padding: 4px; font-size: 1rem;
+  }
+  button {
+    margin-left: 6px;
+    cursor: pointer;
+  }
+  #editor {
+    flex: 1;
+    margin-top: 10px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    outline: none;
+  }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
-  <button id="addPageBtn">+ 새 항목 추가</button>
-  <ul id="pageList"></ul>
+<div id="loginOverlay">
+  <div>GitHub Personal Access Token을 입력하세요</div>
+  <input type="password" id="tokenInput" placeholder="토큰 입력" autocomplete="off" />
+  <button id="tokenSubmitBtn">로그인</button>
+  <div style="margin-top:8px; font-size:0.9rem;">
+    <a href="https://github.com/settings/tokens" target="_blank" style="color:#aaf;">토큰 생성하기</a>
+  </div>
+  <div id="loginError" style="color:#f88; margin-top:6px;"></div>
 </div>
 
-<div id="content">
-  <button id="editToggleBtn">수정 모드</button>
-  <div id="editor" contenteditable="false" style="display:none; border:1px solid #ccc; padding:10px; height:90vh; overflow-y:auto;"></div>
-  <pre id="viewer"></pre>
+<div id="app">
+  <div id="sidebar">
+    <button id="addPageBtn">+ 새 항목 추가</button>
+    <ul id="pageList"></ul>
+  </div>
+  <div id="content">
+    <div style="display:flex; align-items:center;">
+      <button id="editToggleBtn">수정 모드</button>
+      <div style="flex:1;"></div>
+      <button id="logoutBtn" title="로그아웃">로그아웃</button>
+    </div>
+    <div id="editor" contenteditable="false"></div>
+  </div>
 </div>
 
 <script>
 (() => {
+  const loginOverlay = document.getElementById('loginOverlay');
+  const tokenInput = document.getElementById('tokenInput');
+  const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
+  const loginError = document.getElementById('loginError');
+  const app = document.getElementById('app');
   const pageList = document.getElementById('pageList');
   const addPageBtn = document.getElementById('addPageBtn');
   const editToggleBtn = document.getElementById('editToggleBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
   const editor = document.getElementById('editor');
-  const viewer = document.getElementById('viewer');
 
+  const GITHUB_OWNER = 'haemsu';
+  const GITHUB_REPO = 'my-manual.app';
+  const FILE_PATH = 'data/manual.json';
+  const BRANCH = 'main';
+
+  let token = '';
   let pages = {};
   let currentKey = null;
   let editMode = false;
+  let fileSha = null; // GitHub 파일 버전 관리용
 
-  // 저장 함수 (여기서는 로컬변경 반영만, 실제 저장소 연동은 별도 구현 필요)
-  function saveData() {
-    // 실제 저장은 GitHub API 등으로 구현 가능
-    console.log('자동 저장:', pages);
+  // GitHub API 기본 호출
+  async function githubApi(path, method = 'GET', body = null) {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`, {
+      method,
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github+json',
+      },
+      body: body ? JSON.stringify(body) : null,
+    });
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.message || 'GitHub API error');
+    }
+    return res.json();
   }
 
-  // 새 페이지 목록 렌더링
+  // 파일 불러오기
+  async function loadFile() {
+    try {
+      const data = await githubApi(FILE_PATH);
+      fileSha = data.sha;
+      const contentStr = atob(data.content.replace(/\n/g, ''));
+      pages = JSON.parse(contentStr);
+      if (Object.keys(pages).length === 0) {
+        pages = { '예시 항목 1': '내용을 입력하세요.' };
+      }
+      currentKey = Object.keys(pages)[0];
+      renderPageList();
+      renderContent();
+      loginOverlay.style.display = 'none';
+      app.style.display = 'flex';
+    } catch(e) {
+      loginError.textContent = '파일 불러오기 실패: ' + e.message;
+    }
+  }
+
+  // 파일 저장하기
+  async function saveFile() {
+    if (!currentKey) return;
+    pages[currentKey] = editor.textContent;
+    const contentEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(pages, null, 2))));
+    try {
+      const res = await githubApi(FILE_PATH, 'PUT', {
+        message: `[auto] Update ${currentKey}`,
+        content: contentEncoded,
+        sha: fileSha,
+        branch: BRANCH,
+      });
+      fileSha = res.content.sha;
+      console.log('저장 성공');
+    } catch(e) {
+      alert('저장 실패: ' + e.message);
+    }
+  }
+
+  // 목록 렌더링
   function renderPageList() {
     pageList.innerHTML = '';
     for (const key in pages) {
       const li = document.createElement('li');
-      li.dataset.key = key;
-
-      const span = document.createElement('span');
-      span.className = 'page-name';
-      span.textContent = key;
-      span.title = '이름 클릭: 선택 / ✏️ 편집 아이콘 클릭: 이름 수정';
-
-      // 선택 시 내용 표시
-      span.onclick = () => {
+      li.textContent = key;
+      li.className = key === currentKey ? 'selected' : '';
+      li.onclick = () => {
         if (editMode) return;
         currentKey = key;
+        renderPageList();
         renderContent();
-        highlightSelected();
       };
-      li.appendChild(span);
-
-      if (editMode) {
-        const editBtn = document.createElement('button');
-        editBtn.textContent = '✏️';
-        editBtn.title = '이름 수정';
-        editBtn.onclick = (e) => {
-          e.stopPropagation();
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.value = key;
-          input.className = 'edit-name';
-          li.replaceChild(input, span);
-          input.focus();
-          input.select();
-
-          input.onblur = () => {
-            const newName = input.value.trim();
-            if (!newName) {
-              alert('이름은 비울 수 없습니다.');
-              input.focus();
-              return;
-            }
-            if (newName !== key) {
-              if (pages[newName]) {
-                alert('같은 이름의 항목이 이미 있습니다.');
-                input.focus();
-                return;
-              }
-              pages[newName] = pages[key];
-              delete pages[key];
-              if (currentKey === key) currentKey = newName;
-              renderPageList();
-              saveData();
-            } else {
-              li.replaceChild(span, input);
-            }
-          };
-          input.onkeydown = (evt) => {
-            if (evt.key === 'Enter') {
-              input.blur();
-            }
-          };
-        };
-        li.appendChild(editBtn);
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '🗑️';
-        delBtn.title = '삭제';
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          if (confirm(`'${key}' 항목을 삭제하시겠습니까?`)) {
-            delete pages[key];
-            if (currentKey === key) {
-              currentKey = null;
-              editor.style.display = 'none';
-              viewer.textContent = '';
-            }
-            renderPageList();
-            saveData();
-          }
-        };
-        li.appendChild(delBtn);
-      }
-
       pageList.appendChild(li);
     }
-    highlightSelected();
   }
 
-  // 선택된 항목 강조
-  function highlightSelected() {
-    [...pageList.children].forEach(li => {
-      li.style.backgroundColor = li.dataset.key === currentKey ? '#d0e7ff' : '';
-    });
-  }
-
-  // 내용 렌더링 (보기 모드)
+  // 내용 렌더링
   function renderContent() {
     if (!currentKey) {
-      editor.style.display = 'none';
-      viewer.textContent = '';
+      editor.textContent = '';
+      editor.contentEditable = false;
       return;
     }
-    viewer.textContent = pages[currentKey] || '';
-    viewer.style.display = editMode ? 'none' : 'block';
-    editor.style.display = editMode ? 'block' : 'none';
     editor.textContent = pages[currentKey] || '';
+    editor.contentEditable = editMode;
   }
 
   // 수정 모드 토글
@@ -164,12 +201,18 @@
     }
     editMode = !editMode;
     editToggleBtn.textContent = editMode ? '보기 모드' : '수정 모드';
-    renderContent();
-    renderPageList();
+    editor.contentEditable = editMode;
+    if (!editMode) {
+      saveFile();
+    }
   };
 
   // 새 항목 추가
   addPageBtn.onclick = () => {
+    if (!editMode) {
+      alert('수정 모드에서만 새 항목을 추가할 수 있습니다.');
+      return;
+    }
     let newName = prompt('새 항목 이름을 입력하세요.');
     if (!newName) return;
     newName = newName.trim();
@@ -179,28 +222,45 @@
     currentKey = newName;
     renderPageList();
     renderContent();
-    saveData();
-    if (!editMode) {
-      editToggleBtn.click();
-    }
   };
 
-  // 에디터 내용 변경시 자동 저장 (debounce 없이 간단 구현)
+  // 에디터 내용 변경시 자동 반영
   editor.addEventListener('input', () => {
     if (!editMode || !currentKey) return;
     pages[currentKey] = editor.textContent;
-    saveData();
   });
 
-  // 초기 데이터 샘플
-  pages = {
-    "예시 항목 1": "여기에 내용을 입력하세요.",
-    "예시 항목 2": "두번째 항목 내용입니다."
+  // 로그아웃 처리
+  logoutBtn.onclick = () => {
+    token = '';
+    fileSha = null;
+    pages = {};
+    currentKey = null;
+    editMode = false;
+    editor.textContent = '';
+    editor.contentEditable = false;
+    app.style.display = 'none';
+    loginOverlay.style.display = 'flex';
+    tokenInput.value = '';
+    loginError.textContent = '';
   };
-  currentKey = Object.keys(pages)[0];
 
-  renderPageList();
-  renderContent();
+  // 로그인 처리
+  tokenSubmitBtn.onclick = () => {
+    token = tokenInput.value.trim();
+    if (!token) {
+      loginError.textContent = '토큰을 입력하세요.';
+      return;
+    }
+    loginError.textContent = '';
+    loadFile();
+  };
+
+  // 토큰 입력 후 Enter키로도 로그인 가능
+  tokenInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') tokenSubmitBtn.click();
+  });
+
 })();
 </script>
 
