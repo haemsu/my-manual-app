@@ -1,17 +1,23 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>내 매뉴얼</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link
+    href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css"
+    rel="stylesheet"
+  />
   <style>
     body {
       display: flex;
       height: 100vh;
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: "Segoe UI", sans-serif;
     }
     #auth-section {
       margin: auto;
@@ -29,21 +35,23 @@
       overflow-y: auto;
     }
     .editor-container {
-  flex: 1;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  height: 85vh; /* 추가: 부모 높이 명확히 지정 */
-}
-
-#quill-editor, #viewer {
-  flex-grow: 1;      /* 공간 꽉 채우기 */
-  overflow-y: auto;  /* 스크롤 가능하게 */
-}
-
-.mt-3 {
-  margin-top: 1rem;  /* 버튼 위쪽 공간 */
-}
+      flex: 1;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      height: 100vh; /* 부모 높이 지정 */
+    }
+    #quill-editor,
+    #viewer {
+      flex-grow: 1;
+      overflow-y: auto;
+      height: 85vh; /* 뷰어, 에디터 높이 85vh */
+      min-height: 0; /* flexbox 문제 방지 */
+    }
+    .mt-3 {
+      margin-top: 1.5rem;
+      flex-shrink: 0;
+    }
     .item-entry {
       display: flex;
       justify-content: space-between;
@@ -62,7 +70,13 @@
 <body>
   <div id="auth-section">
     <h2>GitHub 토큰 입력</h2>
-    <input type="password" id="token-input" class="form-control" style="width:300px; display:inline-block;" placeholder="Personal Access Token">
+    <input
+      type="password"
+      id="token-input"
+      class="form-control"
+      style="width: 300px; display: inline-block"
+      placeholder="Personal Access Token"
+    />
     <button id="submit-token" class="btn btn-primary">확인</button>
   </div>
 
@@ -73,11 +87,13 @@
     </div>
 
     <div class="editor-container">
-      <div id="quill-editor" style="display:none;"></div>
-      <div id="viewer" style="overflow-y:auto; height:70vh;"></div>
+      <div id="quill-editor" style="display: none;"></div>
+      <div id="viewer" style="display: block;"></div>
       <div class="mt-3">
         <button class="btn btn-secondary" id="edit-button">수정</button>
-        <button class="btn btn-primary" id="save-button" style="display:none;">저장</button>
+        <button class="btn btn-primary" id="save-button" style="display: none;">
+          저장
+        </button>
       </div>
     </div>
   </div>
@@ -92,42 +108,62 @@
     let quill;
 
     document.getElementById("submit-token").onclick = async () => {
-      token = document.getElementById("token-input").value;
-      if (token) {
-        document.getElementById("auth-section").style.display = "none";
-        document.getElementById("main-section").style.display = "flex";
-        await loadManual();
-        quill = new Quill('#quill-editor', {
-          theme: 'snow',
-          modules: {
-            toolbar: [
-              ['bold', 'italic', 'underline', 'strike'],
-              [{ 'header': 1 }, { 'header': 2 }],
-              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-              ['link', 'image'],
-              [{ 'font': [] }]
-            ]
-          }
-        });
+      token = document.getElementById("token-input").value.trim();
+      if (!token) {
+        alert("토큰을 입력해주세요.");
+        return;
       }
+      document.getElementById("auth-section").style.display = "none";
+      document.getElementById("main-section").style.display = "flex";
+
+      quill = new Quill("#quill-editor", {
+        theme: "snow",
+        modules: {
+          toolbar: [
+            ["bold", "italic", "underline", "strike"],
+            [{ header: 1 }, { header: 2 }],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["link", "image"],
+            [{ font: [] }],
+          ],
+        },
+      });
+
+      await loadManual();
     };
 
     async function loadManual() {
-      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-        headers: { Authorization: `token ${token}` }
-      });
-      const json = await res.json();
-      const content = decodeURIComponent(escape(atob(json.content)));
-      data = JSON.parse(content);
-      refreshItemList();
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${repo}/contents/${path}`,
+          {
+            headers: { Authorization: `token ${token}` },
+          }
+        );
+        if (!res.ok) {
+          alert(`파일 로드 실패: ${res.status} ${res.statusText}`);
+          data = {};
+          refreshItemList();
+          return;
+        }
+        const json = await res.json();
+        const content = decodeURIComponent(escape(atob(json.content)));
+        data = JSON.parse(content);
+        refreshItemList();
+      } catch (e) {
+        alert("파일 로드 중 오류: " + e.message);
+        data = {};
+        refreshItemList();
+      }
     }
 
     function refreshItemList() {
       const list = document.getElementById("item-list");
       list.innerHTML = "";
-      Object.keys(data).forEach(key => {
+      Object.keys(data).forEach((key) => {
         const div = document.createElement("div");
         div.className = "item-entry";
+
         const span = document.createElement("span");
         span.textContent = key;
         span.onclick = () => showContent(key);
@@ -190,6 +226,10 @@
     };
 
     document.getElementById("edit-button").onclick = () => {
+      if (!currentKey) {
+        alert("수정할 항목을 선택하세요.");
+        return;
+      }
       document.getElementById("viewer").style.display = "none";
       document.getElementById("quill-editor").style.display = "block";
       document.getElementById("edit-button").style.display = "none";
@@ -198,31 +238,40 @@
     };
 
     document.getElementById("save-button").onclick = () => {
+      if (!currentKey) {
+        alert("저장할 항목을 선택하세요.");
+        return;
+      }
       data[currentKey] = quill.root.innerHTML;
       updateGitHub();
       showContent(currentKey);
     };
 
     async function updateGitHub() {
-      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-        headers: { Authorization: `token ${token}` }
-      });
-      const json = await res.json();
-      const sha = json.sha;
+      try {
+        const resGet = await fetch(
+          `https://api.github.com/repos/${repo}/contents/${path}`,
+          {
+            headers: { Authorization: `token ${token}` },
+          }
+        );
+        if (!resGet.ok) {
+          alert(`GitHub 파일 정보 불러오기 실패: ${resGet.status} ${resGet.statusText}`);
+          return;
+        }
+        const json = await resGet.json();
+        const sha = json.sha;
 
-      await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `token ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: "Update manual",
-          content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
-          sha: sha
-        })
-      });
-    }
-  </script>
-</body>
-</html>
+        const resPut = await fetch(
+          `https://api.github.com/repos/${repo}/contents/${path}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `token ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: "Update manual",
+              content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+              sha: sha,
+           
