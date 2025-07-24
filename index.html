@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Manual</title>
+  <link href="style.css" rel="stylesheet"/>
+</head>
+<body>
+  <div id="login-screen">
+    <h2>Enter Password</h2>
+    <input type="password" id="password-input" placeholder="Password"/>
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="token-area">
+      <input type="text" id="token" placeholder="GitHub Token"/>
+      <input type="text" id="username" value="haemsu" readonly/>
+      <input type="text" id="repo" value="my-manual.app" readonly/>
+      <button onclick="fetchManual()">📥 불러오기</button>
+      <button onclick="saveManual()">💾 저장</button>
+    </div>
+    <div class="container">
+      <div class="sidebar">
+        <input type="text" id="new-item" placeholder="New item"/>
+        <button onclick="addItem()">➕</button>
+        <ul id="item-list"></ul>
+      </div>
+      <div class="editor">
+        <div id="editor" contenteditable="true"></div>
+        <button id="save-content" onclick="saveContent()">내용 저장</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
