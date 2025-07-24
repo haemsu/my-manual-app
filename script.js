@@ -1,4 +1,3 @@
-
 let token = "";
 let data = {};
 let currentKey = "";
@@ -30,8 +29,46 @@ function refreshItemList() {
   list.innerHTML = "";
   Object.keys(data).forEach(key => {
     const li = document.createElement("li");
-    li.textContent = key;
-    li.onclick = () => showContent(key);
+
+    const span = document.createElement("span");
+    span.textContent = key;
+    span.onclick = () => showContent(key);
+    li.appendChild(span);
+
+    const renameBtn = document.createElement("button");
+    renameBtn.textContent = "✎";
+    renameBtn.title = "이름 수정";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt("새 이름:", key);
+      if (newName && newName !== key && !data[newName]) {
+        data[newName] = data[key];
+        delete data[key];
+        if (currentKey === key) currentKey = newName;
+        updateGitHub();
+        refreshItemList();
+      }
+    };
+    li.appendChild(renameBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "🗑";
+    deleteBtn.title = "삭제";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`'${key}' 항목을 삭제할까요?`)) {
+        delete data[key];
+        if (currentKey === key) {
+          currentKey = "";
+          document.getElementById("viewer").innerHTML = "";
+          document.getElementById("editor").value = "";
+        }
+        updateGitHub();
+        refreshItemList();
+      }
+    };
+    li.appendChild(deleteBtn);
+
     list.appendChild(li);
   });
 }
