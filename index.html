@@ -100,7 +100,6 @@
   const path = "data/manual.json";
   let quill;
 
-  // 페이지 로드 시 localStorage에서 토큰 불러오기
   window.onload = () => {
     const savedToken = localStorage.getItem("github_token");
     if (savedToken) {
@@ -115,7 +114,6 @@
       return;
     }
 
-    // 입력한 토큰을 localStorage에 저장
     localStorage.setItem("github_token", token);
 
     document.getElementById("auth-section").style.display = "none";
@@ -136,7 +134,7 @@
 
     try {
       await loadManual();
-    } catch(e) {
+    } catch (e) {
       alert("매뉴얼 로드 실패: " + e.message);
     }
   };
@@ -152,7 +150,7 @@
       return;
     }
     const json = await res.json();
-    const content = decodeURIComponent(escape(atob(json.content)));
+    const content = atob(json.content);
     data = JSON.parse(content);
     refreshItemList();
   }
