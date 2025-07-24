@@ -1,35 +1,221 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>내 매뉴얼</title>
-  <link rel="stylesheet" href="style.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+  <style>
+    body {
+      display: flex;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    #auth-section {
+      margin: auto;
+      text-align: center;
+    }
+    #main-section {
+      display: flex;
+      width: 100%;
+    }
+    .sidebar {
+      width: 250px;
+      background-color: #f8f9fa;
+      border-right: 1px solid #ddd;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .editor-container {
+      flex: 1;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    #quill-editor {
+      height: 70vh;
+    }
+    .item-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .item-entry span {
+      cursor: pointer;
+      flex: 1;
+    }
+    .item-entry button {
+      margin-left: 0.3rem;
+    }
+  </style>
 </head>
 <body>
   <div id="auth-section">
     <h2>GitHub 토큰 입력</h2>
-    <input type="password" id="token-input" placeholder="GitHub Personal Access Token" />
-    <button id="submit-token">확인</button>
+    <input type="password" id="token-input" class="form-control" style="width:300px; display:inline-block;" placeholder="Personal Access Token">
+    <button id="submit-token" class="btn btn-primary">확인</button>
   </div>
 
-  <div id="main-section" style="display:none;">
+  <div id="main-section" style="display: none;">
     <div class="sidebar">
-      <button id="add-item">항목 추가</button>
-      <ul id="item-list"></ul>
+      <button class="btn btn-success w-100 mb-2" id="add-item">+ 항목 추가</button>
+      <div id="item-list"></div>
     </div>
-    <div class="editor">
-      <div id="viewer" style="display:block;"></div>
-      <textarea id="editor" style="display:none;"></textarea>
-      <div id="buttons">
-        <button id="edit-button">수정</button>
-        <button id="save-button" style="display:none;">저장</button>
+
+    <div class="editor-container">
+      <div id="quill-editor" style="display:none;"></div>
+      <div id="viewer" style="overflow-y:auto; height:70vh;"></div>
+      <div class="mt-3">
+        <button class="btn btn-secondary" id="edit-button">수정</button>
+        <button class="btn btn-primary" id="save-button" style="display:none;">저장</button>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+  <script>
+    let token = "";
+    let data = {};
+    let currentKey = "";
+    const repo = "haemsu/my-manual-app";
+    const path = "data/manual.json";
+    let quill;
+
+    document.getElementById("submit-token").onclick = async () => {
+      token = document.getElementById("token-input").value;
+      if (token) {
+        document.getElementById("auth-section").style.display = "none";
+        document.getElementById("main-section").style.display = "flex";
+        await loadManual();
+        quill = new Quill('#quill-editor', {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              ['bold', 'italic', 'underline', 'strike'],
+              [{ 'header': 1 }, { 'header': 2 }],
+              [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+              ['link', 'image'],
+              [{ 'font': [] }]
+            ]
+          }
+        });
+      }
+    };
+
+    async function loadManual() {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        headers: { Authorization: `token ${token}` }
+      });
+      const json = await res.json();
+      const content = decodeURIComponent(escape(atob(json.content)));
+      data = JSON.parse(content);
+      refreshItemList();
+    }
+
+    function refreshItemList() {
+      const list = document.getElementById("item-list");
+      list.innerHTML = "";
+      Object.keys(data).forEach(key => {
+        const div = document.createElement("div");
+        div.className = "item-entry";
+        const span = document.createElement("span");
+        span.textContent = key;
+        span.onclick = () => showContent(key);
+        div.appendChild(span);
+
+        const renameBtn = document.createElement("button");
+        renameBtn.className = "btn btn-sm btn-outline-secondary";
+        renameBtn.textContent = "✎";
+        renameBtn.onclick = (e) => {
+          e.stopPropagation();
+          const newName = prompt("새 이름:", key);
+          if (newName && newName !== key && !data[newName]) {
+            data[newName] = data[key];
+            delete data[key];
+            if (currentKey === key) currentKey = newName;
+            updateGitHub();
+            refreshItemList();
+          }
+        };
+        div.appendChild(renameBtn);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "btn btn-sm btn-outline-danger";
+        deleteBtn.textContent = "🗑";
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(`'${key}' 항목을 삭제할까요?`)) {
+            delete data[key];
+            if (currentKey === key) {
+              currentKey = "";
+              document.getElementById("viewer").innerHTML = "";
+              quill.root.innerHTML = "";
+            }
+            updateGitHub();
+            refreshItemList();
+          }
+        };
+        div.appendChild(deleteBtn);
+
+        list.appendChild(div);
+      });
+    }
+
+    function showContent(key) {
+      currentKey = key;
+      document.getElementById("viewer").style.display = "block";
+      document.getElementById("quill-editor").style.display = "none";
+      document.getElementById("edit-button").style.display = "inline-block";
+      document.getElementById("save-button").style.display = "none";
+      document.getElementById("viewer").innerHTML = data[key];
+    }
+
+    document.getElementById("add-item").onclick = () => {
+      const name = prompt("항목 이름:");
+      if (name && !data[name]) {
+        data[name] = "";
+        updateGitHub();
+        refreshItemList();
+      }
+    };
+
+    document.getElementById("edit-button").onclick = () => {
+      document.getElementById("viewer").style.display = "none";
+      document.getElementById("quill-editor").style.display = "block";
+      document.getElementById("edit-button").style.display = "none";
+      document.getElementById("save-button").style.display = "inline-block";
+      quill.root.innerHTML = data[currentKey];
+    };
+
+    document.getElementById("save-button").onclick = () => {
+      data[currentKey] = quill.root.innerHTML;
+      updateGitHub();
+      showContent(currentKey);
+    };
+
+    async function updateGitHub() {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        headers: { Authorization: `token ${token}` }
+      });
+      const json = await res.json();
+      const sha = json.sha;
+
+      await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: "Update manual",
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+          sha: sha
+        })
+      });
+    }
+  </script>
 </body>
 </html>
