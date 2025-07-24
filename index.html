@@ -2,59 +2,113 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>GitHub 연동 매뉴얼 웹앱</title>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>깃허브 연동 개인 매뉴얼</title>
 <style>
-  body, html { margin:0; padding:0; height:100%; font-family: sans-serif; }
+  html, body { margin:0; padding:0; height:100%; font-family: 'Malgun Gothic', 돋움, Arial, sans-serif; }
   #loginOverlay {
     position: fixed; top:0; left:0; width:100%; height:100%;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.75);
     display: flex; justify-content: center; align-items: center;
-    color: white; flex-direction: column;
-    z-index: 1000;
+    flex-direction: column; color: #fff;
+    z-index: 9999;
   }
   #loginOverlay input {
-    padding: 8px; width: 300px; font-size: 1rem; margin-top: 10px;
+    font-size: 1rem; padding: 8px; width: 320px; border-radius: 4px; border: none;
+    margin-top: 12px;
   }
+  #loginOverlay button {
+    margin-top: 12px; padding: 8px 16px; font-size: 1rem;
+    border:none; border-radius:4px; cursor: pointer;
+    background-color: #0066ff; color: white;
+  }
+  #loginOverlay a {
+    margin-top: 8px; color: #8cf; text-decoration: underline;
+  }
+  #loginError {
+    margin-top: 8px; color: #f88;
+  }
+
   #app {
-    display: none; height: 100vh; 
-    display: flex;
+    display: none; height: 100vh; display: flex;
+    background: #f9f9f9;
   }
   #sidebar {
-    width: 280px; border-right: 1px solid #ccc;
-    padding: 10px; box-sizing: border-box;
-    overflow-y: auto;
-  }
-  #content {
-    flex: 1; padding: 10px; box-sizing: border-box;
+    width: 300px; border-right: 1px solid #ccc;
+    box-sizing: border-box; padding: 12px;
+    background: white;
     display: flex; flex-direction: column;
   }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li {
+  #sidebar h2 {
+    margin: 0 0 12px 0; font-size: 1.3rem;
+  }
+  #pageList {
+    list-style: none; padding: 0; margin: 0; flex: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc; border-radius: 6px;
+  }
+  #pageList li {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 6px 4px; cursor: pointer;
-    border-radius: 4px;
-  }
-  li.selected { background: #cce4ff; }
-  li:hover { background: #e0eefa; }
-  .page-name {
-    flex: 1; user-select: none;
-  }
-  input.edit-name {
-    flex: 1; padding: 4px; font-size: 1rem;
-  }
-  button {
-    margin-left: 6px;
+    padding: 8px 10px; border-bottom: 1px solid #eee;
     cursor: pointer;
+  }
+  #pageList li.selected {
+    background-color: #d0e7ff;
+    font-weight: bold;
+  }
+  #pageList li input.edit-name {
+    flex: 1;
+    font-size: 1rem;
+    border: 1px solid #888;
+    border-radius: 4px;
+    padding: 4px 6px;
+  }
+  #pageList li button {
+    background: none; border: none; color: #888; font-size: 1.1rem;
+    cursor: pointer; padding: 0 6px;
+  }
+  #addPageBtn {
+    margin-top: 12px; padding: 8px;
+    font-size: 1rem; border-radius: 4px;
+    border: none; cursor: pointer;
+    background-color: #0066ff; color: white;
+  }
+
+  #content {
+    flex: 1; padding: 12px;
+    display: flex; flex-direction: column;
+  }
+  #contentHeader {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  #contentHeader h2 {
+    margin: 0;
+  }
+  #logoutBtn {
+    background-color: #f44336;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
   }
   #editor {
     flex: 1;
-    margin-top: 10px;
     border: 1px solid #ccc;
-    padding: 10px;
-    font-family: monospace;
-    white-space: pre-wrap;
-    overflow-y: auto;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 1rem;
+    line-height: 1.4;
+    resize: none;
     outline: none;
+    font-family: 'Malgun Gothic', 돋움, Arial, sans-serif;
+    background-color: white;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 </style>
 </head>
@@ -62,56 +116,55 @@
 
 <div id="loginOverlay">
   <div>GitHub Personal Access Token을 입력하세요</div>
-  <input type="password" id="tokenInput" placeholder="토큰 입력" autocomplete="off" />
-  <button id="tokenSubmitBtn">로그인</button>
-  <div style="margin-top:8px; font-size:0.9rem;">
-    <a href="https://github.com/settings/tokens" target="_blank" style="color:#aaf;">토큰 생성하기</a>
-  </div>
-  <div id="loginError" style="color:#f88; margin-top:6px;"></div>
+  <input type="password" id="tokenInput" placeholder="토큰 입력" autocomplete="off" spellcheck="false" />
+  <button id="loginBtn">로그인</button>
+  <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">토큰 생성하러 가기</a>
+  <div id="loginError"></div>
 </div>
 
 <div id="app">
   <div id="sidebar">
-    <button id="addPageBtn">+ 새 항목 추가</button>
+    <h2>매뉴얼 항목</h2>
     <ul id="pageList"></ul>
+    <button id="addPageBtn">+ 새 항목 추가</button>
   </div>
   <div id="content">
-    <div style="display:flex; align-items:center;">
-      <button id="editToggleBtn">수정 모드</button>
-      <div style="flex:1;"></div>
-      <button id="logoutBtn" title="로그아웃">로그아웃</button>
+    <div id="contentHeader">
+      <h2 id="pageTitle"></h2>
+      <button id="logoutBtn">로그아웃</button>
     </div>
-    <div id="editor" contenteditable="false"></div>
+    <div id="editor" contenteditable="true" spellcheck="false" aria-label="매뉴얼 내용 편집 영역"></div>
   </div>
 </div>
 
 <script>
 (() => {
+  // GitHub 저장소 설정
+  const OWNER = 'haemsu';
+  const REPO = 'my-manual.app';
+  const FILEPATH = 'data/manual.json';
+  const BRANCH = 'main';
+
+  // DOM 요소
   const loginOverlay = document.getElementById('loginOverlay');
   const tokenInput = document.getElementById('tokenInput');
-  const tokenSubmitBtn = document.getElementById('tokenSubmitBtn');
+  const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
   const app = document.getElementById('app');
   const pageList = document.getElementById('pageList');
   const addPageBtn = document.getElementById('addPageBtn');
-  const editToggleBtn = document.getElementById('editToggleBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
+  const pageTitle = document.getElementById('pageTitle');
   const editor = document.getElementById('editor');
-
-  const GITHUB_OWNER = 'haemsu';
-  const GITHUB_REPO = 'my-manual-app';
-  const FILE_PATH = 'data/manual.json';
-  const BRANCH = 'main';
+  const logoutBtn = document.getElementById('logoutBtn');
 
   let token = '';
+  let fileSha = null;
   let pages = {};
   let currentKey = null;
-  let editMode = false;
-  let fileSha = null; // GitHub 파일 버전 관리용
 
-  // GitHub API 기본 호출
+  // GitHub API 호출 함수
   async function githubApi(path, method = 'GET', body = null) {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`, {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
       method,
       headers: {
         Authorization: `token ${token}`,
@@ -120,146 +173,227 @@
       body: body ? JSON.stringify(body) : null,
     });
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.message || 'GitHub API error');
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData.message || `${res.status} ${res.statusText}`;
+      throw new Error(msg);
     }
     return res.json();
   }
 
-  // 파일 불러오기
-  async function loadFile() {
-    try {
-      const data = await githubApi(FILE_PATH);
-      fileSha = data.sha;
-      const contentStr = atob(data.content.replace(/\n/g, ''));
-      pages = JSON.parse(contentStr);
-      if (Object.keys(pages).length === 0) {
-        pages = { '예시 항목 1': '내용을 입력하세요.' };
-      }
-      currentKey = Object.keys(pages)[0];
-      renderPageList();
-      renderContent();
-      loginOverlay.style.display = 'none';
-      app.style.display = 'flex';
-    } catch(e) {
-      loginError.textContent = '파일 불러오기 실패: ' + e.message;
-    }
+  // base64 디코드
+  function b64DecodeUnicode(str) {
+    return decodeURIComponent(
+      Array.prototype.map.call(atob(str), c => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join('')
+    );
   }
 
-  // 파일 저장하기
-  async function saveFile() {
+  // base64 인코드 (utf-8 지원)
+  function b64EncodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      (match, p1) => String.fromCharCode('0x' + p1)));
+  }
+
+  // 깃허브에서 manual.json 불러오기
+  async function loadManual() {
+    const data = await githubApi(FILEPATH);
+    fileSha = data.sha;
+    const contentStr = b64DecodeUnicode(data.content.replace(/\n/g, ''));
+    pages = JSON.parse(contentStr);
+    if (!pages || typeof pages !== 'object' || Object.keys(pages).length === 0) {
+      pages = { '예시 항목': '내용을 작성하세요.' };
+    }
+    currentKey = Object.keys(pages)[0];
+    renderPageList();
+    renderCurrentPage();
+    loginOverlay.style.display = 'none';
+    app.style.display = 'flex';
+  }
+
+  // 페이지 목록 렌더링
+  function renderPageList() {
+    pageList.innerHTML = '';
+    Object.keys(pages).forEach(key => {
+      const li = document.createElement('li');
+      li.className = (key === currentKey) ? 'selected' : '';
+      
+      // 이름 수정 input
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = key;
+      nameInput.className = 'edit-name';
+      nameInput.title = '클릭 시 이름 수정';
+      nameInput.addEventListener('click', e => e.stopPropagation());
+      
+      // 이름 변경 처리 (엔터 또는 포커스 아웃 시)
+      function finishEdit() {
+        const newName = nameInput.value.trim();
+        if (!newName) {
+          alert('이름은 비워둘 수 없습니다.');
+          nameInput.value = key;
+          return;
+        }
+        if (newName !== key) {
+          if (pages[newName]) {
+            alert('이미 같은 이름의 항목이 있습니다.');
+            nameInput.value = key;
+            return;
+          }
+          // 이름 변경: 객체 키 교체
+          pages[newName] = pages[key];
+          delete pages[key];
+          if (currentKey === key) currentKey = newName;
+          saveManual();
+          renderPageList();
+          renderCurrentPage();
+        }
+      }
+      nameInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          nameInput.blur();
+        }
+      });
+      nameInput.addEventListener('blur', finishEdit);
+      
+      li.appendChild(nameInput);
+
+      // 삭제 버튼
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '🗑';
+      delBtn.title = '삭제';
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (confirm(`"${key}" 항목을 삭제하시겠습니까?`)) {
+          delete pages[key];
+          if (currentKey === key) {
+            const keys = Object.keys(pages);
+            currentKey = keys.length ? keys[0] : null;
+          }
+          saveManual();
+          renderPageList();
+          renderCurrentPage();
+        }
+      });
+      li.appendChild(delBtn);
+
+      // 클릭 시 선택
+      li.addEventListener('click', () => {
+        if (currentKey === key) return;
+        currentKey = key;
+        renderPageList();
+        renderCurrentPage();
+      });
+
+      pageList.appendChild(li);
+    });
+  }
+
+  // 현재 페이지 내용 렌더링
+  function renderCurrentPage() {
+    if (!currentKey) {
+      pageTitle.textContent = '(선택된 항목 없음)';
+      editor.textContent = '';
+      editor.setAttribute('contenteditable', 'false');
+      return;
+    }
+    pageTitle.textContent = currentKey;
+    editor.textContent = pages[currentKey] || '';
+    editor.setAttribute('contenteditable', 'true');
+    editor.focus();
+  }
+
+  // 저장소에 manual.json 자동 저장
+  let saveTimeout = null;
+  function scheduleSave() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      saveManual();
+    }, 600); // 0.6초 디바운스
+  }
+
+  async function saveManual() {
     if (!currentKey) return;
     pages[currentKey] = editor.textContent;
-    const contentEncoded = btoa(unescape(encodeURIComponent(JSON.stringify(pages, null, 2))));
+    const jsonStr = JSON.stringify(pages, null, 2);
+    const contentEncoded = b64EncodeUnicode(jsonStr);
+
     try {
-      const res = await githubApi(FILE_PATH, 'PUT', {
+      const res = await githubApi(FILEPATH, 'PUT', {
         message: `[auto] Update ${currentKey}`,
         content: contentEncoded,
         sha: fileSha,
         branch: BRANCH,
       });
       fileSha = res.content.sha;
-      console.log('저장 성공');
-    } catch(e) {
-      alert('저장 실패: ' + e.message);
+      console.log('저장 완료:', currentKey);
+    } catch (err) {
+      alert('저장 실패: ' + err.message);
     }
   }
 
-  // 목록 렌더링
-  function renderPageList() {
-    pageList.innerHTML = '';
-    for (const key in pages) {
-      const li = document.createElement('li');
-      li.textContent = key;
-      li.className = key === currentKey ? 'selected' : '';
-      li.onclick = () => {
-        if (editMode) return;
-        currentKey = key;
-        renderPageList();
-        renderContent();
-      };
-      pageList.appendChild(li);
-    }
-  }
-
-  // 내용 렌더링
-  function renderContent() {
-    if (!currentKey) {
-      editor.textContent = '';
-      editor.contentEditable = false;
-      return;
-    }
-    editor.textContent = pages[currentKey] || '';
-    editor.contentEditable = editMode;
-  }
-
-  // 수정 모드 토글
-  editToggleBtn.onclick = () => {
-    if (!currentKey) {
-      alert('먼저 항목을 선택하세요.');
-      return;
-    }
-    editMode = !editMode;
-    editToggleBtn.textContent = editMode ? '보기 모드' : '수정 모드';
-    editor.contentEditable = editMode;
-    if (!editMode) {
-      saveFile();
-    }
-  };
+  // 편집 내용 변경시 자동 저장 예약
+  editor.addEventListener('input', () => {
+    if (!currentKey) return;
+    pages[currentKey] = editor.textContent;
+    scheduleSave();
+  });
 
   // 새 항목 추가
-  addPageBtn.onclick = () => {
-    if (!editMode) {
-      alert('수정 모드에서만 새 항목을 추가할 수 있습니다.');
-      return;
-    }
+  addPageBtn.addEventListener('click', () => {
     let newName = prompt('새 항목 이름을 입력하세요.');
     if (!newName) return;
     newName = newName.trim();
-    if (!newName) return alert('이름은 비워둘 수 없습니다.');
-    if (pages[newName]) return alert('같은 이름의 항목이 이미 있습니다.');
+    if (!newName) {
+      alert('이름은 비워둘 수 없습니다.');
+      return;
+    }
+    if (pages[newName]) {
+      alert('이미 같은 이름의 항목이 있습니다.');
+      return;
+    }
     pages[newName] = '';
     currentKey = newName;
     renderPageList();
-    renderContent();
-  };
-
-  // 에디터 내용 변경시 자동 반영
-  editor.addEventListener('input', () => {
-    if (!editMode || !currentKey) return;
-    pages[currentKey] = editor.textContent;
+    renderCurrentPage();
+    saveManual();
   });
 
-  // 로그아웃 처리
-  logoutBtn.onclick = () => {
+  // 로그인 버튼 클릭
+  loginBtn.addEventListener('click', async () => {
+    const val = tokenInput.value.trim();
+    if (!val) {
+      loginError.textContent = '토큰을 입력해주세요.';
+      return;
+    }
+    token = val;
+    loginError.textContent = '';
+    try {
+      await loadManual();
+    } catch (e) {
+      loginError.textContent = '불러오기 실패: ' + e.message;
+      token = '';
+    }
+  });
+
+  // 로그아웃 (새로고침)
+  logoutBtn.addEventListener('click', () => {
     token = '';
     fileSha = null;
     pages = {};
     currentKey = null;
-    editMode = false;
     editor.textContent = '';
-    editor.contentEditable = false;
+    pageList.innerHTML = '';
+    pageTitle.textContent = '';
     app.style.display = 'none';
     loginOverlay.style.display = 'flex';
     tokenInput.value = '';
     loginError.textContent = '';
-  };
-
-  // 로그인 처리
-  tokenSubmitBtn.onclick = () => {
-    token = tokenInput.value.trim();
-    if (!token) {
-      loginError.textContent = '토큰을 입력하세요.';
-      return;
-    }
-    loginError.textContent = '';
-    loadFile();
-  };
-
-  // 토큰 입력 후 Enter키로도 로그인 가능
-  tokenInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') tokenSubmitBtn.click();
   });
+
+  // 초기 진입시 토큰 입력 창 보여줌
+  loginOverlay.style.display = 'flex';
+  app.style.display = 'none';
 
 })();
 </script>
