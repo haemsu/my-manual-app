@@ -3,7 +3,7 @@ let token = "";
 let data = {};
 let currentKey = "";
 
-const repo = "haemsu/my-manual.app";
+const repo = "haemsu/my-manual-app";
 const path = "data/manual.json";
 
 document.getElementById("submit-token").onclick = async () => {
