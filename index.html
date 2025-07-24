@@ -29,18 +29,21 @@
       overflow-y: auto;
     }
     .editor-container {
-      flex: 1;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-    }
-    #quill-editor {
-      height: 85vh;
-    }
-     #viewer {
-    overflow-y: auto;
-    height: 85vh;  /* 추가 */
-    }
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 85vh; /* 추가: 부모 높이 명확히 지정 */
+}
+
+#quill-editor, #viewer {
+  flex-grow: 1;      /* 공간 꽉 채우기 */
+  overflow-y: auto;  /* 스크롤 가능하게 */
+}
+
+.mt-3 {
+  margin-top: 1rem;  /* 버튼 위쪽 공간 */
+}
     .item-entry {
       display: flex;
       justify-content: space-between;
