@@ -1,38 +1,208 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Manual</title>
-  <link href="style.css" rel="stylesheet"/>
+<meta charset="UTF-8" />
+<title>매뉴얼 웹앱</title>
+<style>
+  body { display: flex; height: 100vh; margin: 0; font-family: sans-serif; }
+  #sidebar { width: 300px; border-right: 1px solid #ccc; overflow-y: auto; padding: 10px; box-sizing: border-box; }
+  #content { flex: 1; padding: 10px; box-sizing: border-box; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+  .page-name { flex: 1; cursor: pointer; }
+  input.edit-name { flex: 1; padding: 2px; font-size: 1em; }
+  button { margin-left: 5px; }
+  #editor { width: 100%; height: 90vh; }
+  #viewer { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; height: 90vh; overflow-y: auto; background: #f9f9f9; }
+</style>
 </head>
 <body>
-  <div id="login-screen">
-    <h2>Enter Password</h2>
-    <input type="password" id="password-input" placeholder="Password"/>
-    <button onclick="login()">Login</button>
-  </div>
 
-  <div id="app" style="display:none;">
-    <div class="token-area">
-      <input type="text" id="token" placeholder="GitHub Token"/>
-      <input type="text" id="username" value="haemsu" readonly/>
-      <input type="text" id="repo" value="my-manual-app" readonly/>
-      <button onclick="fetchManual()">📥 불러오기</button>
-      <button onclick="saveManual()">💾 저장</button>
-    </div>
-    <div class="container">
-      <div class="sidebar">
-        <input type="text" id="new-item" placeholder="New item"/>
-        <button onclick="addItem()">➕</button>
-        <ul id="item-list"></ul>
-      </div>
-      <div class="editor">
-        <div id="editor" contenteditable="true"></div>
-        <button id="save-content" onclick="saveContent()">내용 저장</button>
-      </div>
-    </div>
-  </div>
-  <script src="script.js"></script>
+<div id="sidebar">
+  <button id="addPageBtn">+ 새 항목 추가</button>
+  <ul id="pageList"></ul>
+</div>
+
+<div id="content">
+  <button id="editToggleBtn">수정 모드</button>
+  <div id="editor" contenteditable="false" style="display:none; border:1px solid #ccc; padding:10px; height:90vh; overflow-y:auto;"></div>
+  <pre id="viewer"></pre>
+</div>
+
+<script>
+(() => {
+  const pageList = document.getElementById('pageList');
+  const addPageBtn = document.getElementById('addPageBtn');
+  const editToggleBtn = document.getElementById('editToggleBtn');
+  const editor = document.getElementById('editor');
+  const viewer = document.getElementById('viewer');
+
+  let pages = {};
+  let currentKey = null;
+  let editMode = false;
+
+  // 저장 함수 (여기서는 로컬변경 반영만, 실제 저장소 연동은 별도 구현 필요)
+  function saveData() {
+    // 실제 저장은 GitHub API 등으로 구현 가능
+    console.log('자동 저장:', pages);
+  }
+
+  // 새 페이지 목록 렌더링
+  function renderPageList() {
+    pageList.innerHTML = '';
+    for (const key in pages) {
+      const li = document.createElement('li');
+      li.dataset.key = key;
+
+      const span = document.createElement('span');
+      span.className = 'page-name';
+      span.textContent = key;
+      span.title = '이름 클릭: 선택 / ✏️ 편집 아이콘 클릭: 이름 수정';
+
+      // 선택 시 내용 표시
+      span.onclick = () => {
+        if (editMode) return;
+        currentKey = key;
+        renderContent();
+        highlightSelected();
+      };
+      li.appendChild(span);
+
+      if (editMode) {
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.title = '이름 수정';
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = key;
+          input.className = 'edit-name';
+          li.replaceChild(input, span);
+          input.focus();
+          input.select();
+
+          input.onblur = () => {
+            const newName = input.value.trim();
+            if (!newName) {
+              alert('이름은 비울 수 없습니다.');
+              input.focus();
+              return;
+            }
+            if (newName !== key) {
+              if (pages[newName]) {
+                alert('같은 이름의 항목이 이미 있습니다.');
+                input.focus();
+                return;
+              }
+              pages[newName] = pages[key];
+              delete pages[key];
+              if (currentKey === key) currentKey = newName;
+              renderPageList();
+              saveData();
+            } else {
+              li.replaceChild(span, input);
+            }
+          };
+          input.onkeydown = (evt) => {
+            if (evt.key === 'Enter') {
+              input.blur();
+            }
+          };
+        };
+        li.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.title = '삭제';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(`'${key}' 항목을 삭제하시겠습니까?`)) {
+            delete pages[key];
+            if (currentKey === key) {
+              currentKey = null;
+              editor.style.display = 'none';
+              viewer.textContent = '';
+            }
+            renderPageList();
+            saveData();
+          }
+        };
+        li.appendChild(delBtn);
+      }
+
+      pageList.appendChild(li);
+    }
+    highlightSelected();
+  }
+
+  // 선택된 항목 강조
+  function highlightSelected() {
+    [...pageList.children].forEach(li => {
+      li.style.backgroundColor = li.dataset.key === currentKey ? '#d0e7ff' : '';
+    });
+  }
+
+  // 내용 렌더링 (보기 모드)
+  function renderContent() {
+    if (!currentKey) {
+      editor.style.display = 'none';
+      viewer.textContent = '';
+      return;
+    }
+    viewer.textContent = pages[currentKey] || '';
+    viewer.style.display = editMode ? 'none' : 'block';
+    editor.style.display = editMode ? 'block' : 'none';
+    editor.textContent = pages[currentKey] || '';
+  }
+
+  // 수정 모드 토글
+  editToggleBtn.onclick = () => {
+    if (!currentKey) {
+      alert('먼저 항목을 선택하세요.');
+      return;
+    }
+    editMode = !editMode;
+    editToggleBtn.textContent = editMode ? '보기 모드' : '수정 모드';
+    renderContent();
+    renderPageList();
+  };
+
+  // 새 항목 추가
+  addPageBtn.onclick = () => {
+    let newName = prompt('새 항목 이름을 입력하세요.');
+    if (!newName) return;
+    newName = newName.trim();
+    if (!newName) return alert('이름은 비워둘 수 없습니다.');
+    if (pages[newName]) return alert('같은 이름의 항목이 이미 있습니다.');
+    pages[newName] = '';
+    currentKey = newName;
+    renderPageList();
+    renderContent();
+    saveData();
+    if (!editMode) {
+      editToggleBtn.click();
+    }
+  };
+
+  // 에디터 내용 변경시 자동 저장 (debounce 없이 간단 구현)
+  editor.addEventListener('input', () => {
+    if (!editMode || !currentKey) return;
+    pages[currentKey] = editor.textContent;
+    saveData();
+  });
+
+  // 초기 데이터 샘플
+  pages = {
+    "예시 항목 1": "여기에 내용을 입력하세요.",
+    "예시 항목 2": "두번째 항목 내용입니다."
+  };
+  currentKey = Object.keys(pages)[0];
+
+  renderPageList();
+  renderContent();
+})();
+</script>
+
 </body>
 </html>
